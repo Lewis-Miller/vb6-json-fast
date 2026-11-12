@@ -1,8 +1,8 @@
-# JsonFast & JsonWrite for Visual Basic 6
+# JSonFast & JSonWrite for Visual Basic 6
 
 A high-performance, zero-dependency JSON parser and serializer for Visual Basic 6. Designed for people who need to parse JSON in VB6 without pulling in COM wrappers or building a full object tree.
 
-Most VB6 JSON options either wrap an external library or allocate a Dictionary/Collection for every object and array. JsonFast instead tokenizes the raw UTF-8 bytes into flat parallel arrays and only materializes strings when you ask for them, reaching **330–360 MB/s** parse throughput in native compiled mode. JsonWrite does the reverse, writing directly into a pre-allocated UTF-16 buffer.
+Most VB6 JSON options either wrap an external library or allocate a Dictionary/Collection for every object and array. JSonFast instead tokenizes the raw UTF-8 bytes into flat parallel arrays and only materializes strings when you ask for them, reaching **330–360 MB/s** parse throughput in native compiled mode. JSonWrite does the reverse, writing directly into a pre-allocated UTF-16 buffer.
 
 ## Features
 
@@ -15,6 +15,7 @@ Most VB6 JSON options either wrap an external library or allocate a Dictionary/C
 
 ### `JSonWrite.cls` (Serializer)
 * **Streaming Builder API:** `BeginObject`, `BeginArray`, `Add`, `AddValue`, `WriteKey`, `EndObject`, and `EndArray` write directly into a pre-allocated UTF-16 `Integer()` buffer with no intermediate objects.
+* **Default `Item` property:** Assign with `writer("key") = value` inside an object or `writer("") = value` inside an array. `Property Set` supports object values such as `Scripting.Dictionary`.
 * **Hybrid `Serialize(vData)`:** Automatically serializes 2D key-value `Variant` arrays (`{object}`), 1D `Variant` arrays (`[array]`), late-bound `Scripting.Dictionary` trees (no `scrrun.dll` reference required), and scalars (`String`, numbers, `Boolean`, `Date`, `Null`).
 * **Direct UTF-8 Output:** `ToString()` for VB6 strings or `ToUtf8Bytes()` for direct file/socket output.
 
@@ -25,7 +26,7 @@ Most VB6 JSON options either wrap an external library or allocate a Dictionary/C
 
 Measured in native compiled mode (with Advanced Optimizations enabled: *Remove Array Bounds Checks*, *Assume No Aliasing*, *Remove Integer Overflow Checks*):
 
-### `JsonFast` Multi-File Parse Throughput
+### `JSonFast` Multi-File Parse Throughput
 
 | File Name | Size (MB) | Runs | Avg / Parse | Throughput |
 | :--- | :---: | :---: | :---: | :---: |
@@ -36,7 +37,7 @@ Measured in native compiled mode (with Advanced Optimizations enabled: *Remove A
 | `40mb.json` | 39.3201 | 2 | 130.09 ms | **302.24 MB/s** |
 | `100mb.json` | 102.9777 | 2 | 308.74 ms | **333.54 MB/s** |
 
-### `JsonWrite` Serialization Throughput (10,000 Records / ~0.95 MB)
+### `JSonWrite` Serialization Throughput (10,000 Records / ~0.95 MB)
 
 | Write Mode | Throughput |
 | :--- | :---: |
@@ -46,9 +47,9 @@ Measured in native compiled mode (with Advanced Optimizations enabled: *Remove A
 
 ## Quick Start
 
-### Reading JSON (`JsonFast`)
+### Reading JSON (`JSonFast`)
 ```vb
-Dim parser As New JsonFast
+Dim parser As New JSonFast
 parser.Parse "{""user"":""Jane Doe"",""active"":true,""created"":""2026-11-11T14:30:00Z""}"
 
 Debug.Print parser("user")                        ' "Jane Doe" (Item is default property)
@@ -69,18 +70,18 @@ Do While itemIdx <> -1
 Loop
 ```
 
-### Writing JSON (`JsonWrite`)
+### Writing JSON (`JSonWrite`)
 ```vb
-Dim writer As New JsonWrite
+Dim writer As New JSonWrite
 
 writer.BeginObject
-    writer.Add "service", "DomainRegistry"
-    writer.Add "version", 2.5
-    writer.Add "active", True
+    writer("service") = "DomainRegistry"      ' default Item property
+    writer("version") = 2.5
+    writer("active") = True
     writer.WriteKey "hosts"
     writer.BeginArray
-        writer.AddValue "http://example.com"
-        writer.AddValue "http://example.com"
+        writer("") = "http://example.com"    ' empty key = array value
+        writer("") = "http://example.com"
     writer.EndArray
 writer.EndObject
 
