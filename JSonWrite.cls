@@ -48,6 +48,7 @@ Private m_Cap As Long
 
 ' tracks comma placement across nested containers (true = needs comma before next item)
 Private m_NeedComma() As Boolean
+Private m_ScopeType() As Byte
 Private m_Depth As Long
 Private m_DepthCap As Long
 Private m_ExpectValue As Boolean
@@ -60,12 +61,14 @@ Private Sub Class_Initialize()
 
     m_DepthCap = 64
     ReDim m_NeedComma(m_DepthCap - 1&)
+    ReDim m_ScopeType(m_DepthCap - 1&)
     m_Depth = 0
 End Sub
 
 Private Sub Class_Terminate()
     Erase m_Buf
     Erase m_NeedComma
+    Erase m_ScopeType
 End Sub
 
 ' resets write cursor without freeing allocated buffer capacity
@@ -73,12 +76,38 @@ Public Sub Clear()
     m_Pos = 0
     m_Depth = 0
     m_ExpectValue = False
-    If m_DepthCap > 0 Then m_NeedComma(0) = False
+    If m_DepthCap > 0 Then
+         m_NeedComma(0) = False
+         m_ScopeType(0) = 0
+    End If
 End Sub
 
 Public Property Get Length() As Long
     Length = m_Pos
 End Property
+
+' default property: jw("key") = value (inside object) or jw("") = value (inside array/root)
+Public Property Let Item(ByVal sKey As String, ByVal vValue As Variant)
+Attribute Item.VB_UserMemId = 0
+
+    If m_ScopeType(m_Depth) = 1 Then
+        Add sKey, vValue
+    Else
+        AddValue vValue
+    End If
+
+
+End Property
+
+' supports object values (such as Scripting.Dictionary) via Set jw("key") = dict
+Public Property Set Item(ByVal sKey As String, ByVal objValue As Object)
+    If m_ScopeType(m_Depth) = 1 Then
+        Add sKey, objValue
+    Else
+        AddValue objValue
+    End If
+End Property
+
 
 Private Sub EnsureCapacity(ByVal extraChars As Long)
     If m_Pos + extraChars >= m_Cap Then
@@ -89,13 +118,15 @@ Private Sub EnsureCapacity(ByVal extraChars As Long)
     End If
 End Sub
 
-Private Sub PushScope()
+Private Sub PushScope(ByVal scopeType As Byte)
     m_Depth = m_Depth + 1
     If m_Depth >= m_DepthCap Then
         m_DepthCap = m_DepthCap * 2&
         ReDim Preserve m_NeedComma(m_DepthCap - 1&)
+        ReDim Preserve m_ScopeType(m_DepthCap - 1&)
     End If
     m_NeedComma(m_Depth) = False
+    m_ScopeType(m_Depth) = scopeType
 End Sub
 
 Private Sub PopScope()
@@ -123,29 +154,27 @@ Public Sub BeginObject()
     If m_NeedComma(m_Depth) Then WriteChar 44    ' ','
     WriteChar 123                               ' '{'
     m_NeedComma(m_Depth) = True
-    PushScope
+    PushScope 1
     m_ExpectValue = False
 End Sub
 
 Public Sub EndObject()
-    If m_ExpectValue Then
-        Err.Raise vbObjectError + 5024, "JsonWrite", "EndObject called before writing value for key"
-        Exit Sub
-    End If
+    If m_ExpectValue Then Err.Raise vbObjectError + 5024, "JsonWrite", "EndObject called before writing value for key"
     PopScope
-    WriteChar 125                               ' '}'
+    WriteChar 125    ' '}'
 End Sub
 
 Public Sub BeginArray()
     If m_NeedComma(m_Depth) Then WriteChar 44    ' ','
     WriteChar 91                                ' '['
     m_NeedComma(m_Depth) = True
-    PushScope
+    PushScope 2
     m_ExpectValue = False
 
 End Sub
 
 Public Sub EndArray()
+    If m_ExpectValue Then Err.Raise vbObjectError + 5024, "JsonWrite", "EndArray called before writing value for key"
     PopScope
     WriteChar 93                                ' ']'
 End Sub
@@ -300,38 +329,38 @@ Private Sub WriteBoolean(ByVal bVal As Boolean)
     If bVal Then
         EnsureCapacity 4&
         m_Buf(m_Pos) = 116    ' t
-         m_Pos = m_Pos + 1
+        m_Pos = m_Pos + 1
         m_Buf(m_Pos) = 114    ' r
-         m_Pos = m_Pos + 1
+        m_Pos = m_Pos + 1
         m_Buf(m_Pos) = 117    ' u
-         m_Pos = m_Pos + 1
+        m_Pos = m_Pos + 1
         m_Buf(m_Pos) = 101   ' e
-         m_Pos = m_Pos + 1
+        m_Pos = m_Pos + 1
     Else
         EnsureCapacity 5&
         m_Buf(m_Pos) = 102   ' f
-         m_Pos = m_Pos + 1
+        m_Pos = m_Pos + 1
         m_Buf(m_Pos) = 97     ' a
-         m_Pos = m_Pos + 1
+        m_Pos = m_Pos + 1
         m_Buf(m_Pos) = 108    ' l
-         m_Pos = m_Pos + 1
+        m_Pos = m_Pos + 1
         m_Buf(m_Pos) = 115    ' s
-         m_Pos = m_Pos + 1
+        m_Pos = m_Pos + 1
         m_Buf(m_Pos) = 101    ' e
-         m_Pos = m_Pos + 1
+        m_Pos = m_Pos + 1
     End If
 End Sub
 
 Private Sub WriteNull()
     EnsureCapacity 4&
     m_Buf(m_Pos) = 110       ' n
-     m_Pos = m_Pos + 1
+    m_Pos = m_Pos + 1
     m_Buf(m_Pos) = 117        ' u
-     m_Pos = m_Pos + 1
+    m_Pos = m_Pos + 1
     m_Buf(m_Pos) = 108        ' l
-     m_Pos = m_Pos + 1
+    m_Pos = m_Pos + 1
     m_Buf(m_Pos) = 108        ' l
-     m_Pos = m_Pos + 1
+    m_Pos = m_Pos + 1
 End Sub
 
 ' Str$ is locale-invariant (always uses '.' decimal separator and adds leading space for positive numbers)
@@ -488,6 +517,8 @@ Private Sub WriteArrayValue(vArr As Variant)
     Else
         Err.Raise vbObjectError + 5023, "JsonWrite", "Arrays with more than 2 dimensions are not supported"
     End If
+
+    m_ExpectValue = False
 End Sub
 
 ' reads cDims (first 2 bytes of the SAFEARRAY header) directly without triggering On Error traps
