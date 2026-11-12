@@ -2,7 +2,7 @@
 
 A high-performance, zero-dependency JSON parser and serializer for Visual Basic 6. Designed for people who need to parse JSON in VB6 without pulling in COM wrappers or building a full object tree.
 
-Most VB6 JSON options either wrap an external library or allocate a Dictionary/Collection for every object and array. JsonFast instead tokenizes the raw UTF-8 bytes into flat parallel arrays and only materializes strings when you ask for them. JsonWrite does the reverse, writing directly into a pre-allocated UTF-16 buffer. Together they reach **330–360 MB/s** parse throughput in native compiled mode.
+Most VB6 JSON options either wrap an external library or allocate a Dictionary/Collection for every object and array. JsonFast instead tokenizes the raw UTF-8 bytes into flat parallel arrays and only materializes strings when you ask for them, reaching **330–360 MB/s** parse throughput in native compiled mode. JsonWrite does the reverse, writing directly into a pre-allocated UTF-16 buffer.
 
 ## Features
 
