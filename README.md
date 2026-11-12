@@ -13,7 +13,7 @@ Most VB6 JSON options either wrap an external library or allocate a Dictionary/C
 * **Strict Validation Mode:** Optional `Strict = True` flag to validate literals (`true`, `false`, `null`) and reject trailing data after the root container.
 * **Formatting Utilities:** Fast 2-byte UTF-16 `Integer()` array implementations of `PrettyPrint`, `Minify`, `Escape`, and `UnEscape`.
 
-### `JsonWrite.cls` (Serializer)
+### `JSonWrite.cls` (Serializer)
 * **Streaming Builder API:** `BeginObject`, `BeginArray`, `Add`, `AddValue`, `WriteKey`, `EndObject`, and `EndArray` write directly into a pre-allocated UTF-16 `Integer()` buffer with no intermediate objects.
 * **Hybrid `Serialize(vData)`:** Automatically serializes 2D key-value `Variant` arrays (`{object}`), 1D `Variant` arrays (`[array]`), late-bound `Scripting.Dictionary` trees (no `scrrun.dll` reference required), and scalars (`String`, numbers, `Boolean`, `Date`, `Null`).
 * **Direct UTF-8 Output:** `ToString()` for VB6 strings or `ToUtf8Bytes()` for direct file/socket output.
@@ -89,6 +89,6 @@ Debug.Print writer.ToString()
 
 ## Installation
 
-1. Copy `JSonFast.cls` and `JsonWrite.cls` into your VB6 project directory and add them via **Project -> Add File...**
+1. Copy `JSonFast.cls` and `JSonWrite.cls` into your VB6 project directory and add them via **Project -> Add File...**
 2. *(Optional)* Add `frmExamples.frm` and open `Project1.vbp` to explore all 9 interactive usage scenarios.
 3. No external DLLs, OCXs, or project references are required—only standard `kernel32` APIs (`CopyMemory`, `MultiByteToWideChar`, `WideCharToMultiByte`, `GetTimeZoneInformation`).
