@@ -1,25 +1,25 @@
 # JsonFast & JsonWrite for Visual Basic 6
 
-A high-performance, zero-dependency JSON parser, query engine, and serializer written in pure Visual Basic 6.
+A high-performance, zero-dependency JSON parser and serializer for Visual Basic 6. Designed for people who need to parse JSON in VB6 without pulling in COM wrappers or building a full object tree.
 
-Designed using data-oriented parallel scalar arrays (`Byte()` and `Long()` vectors) and direct UTF-16 integer buffer writes via `CopyMemory`, **JsonFast** and **JsonWrite** eliminate COM object overhead, `Variant` tree allocations, and BSTR string concatenation churn—achieving **330–360 MB/s** parsing throughput in native compiled mode.
+Most VB6 JSON options either wrap an external library or allocate a Dictionary/Collection for every object and array. JsonFast instead tokenizes the raw UTF-8 bytes into flat parallel arrays and only materializes strings when you ask for them. JsonWrite does the reverse, writing directly into a pre-allocated UTF-16 buffer. Together they reach **330–360 MB/s** parse throughput in native compiled mode.
 
 ## Features
 
-### `JsonFast.cls` (Parser & Query Engine)
-* **Zero-Allocation Lazy Evaluation:** Tokenizes raw UTF-8 byte streams into flat parallel arrays (`TokType`, `TokOffset`, `TokLength`, `TokNext`, `TokChild`, `TokTail`) and decodes strings on demand only when queried.
+### `JSonFast.cls` (Parser & Query Engine)
+* **Low-overhead token stream:** Tokenizes raw UTF-8 into parallel arrays (`TokType`, `TokOffset`, `TokLength`, `TokNext`, `TokChild`, `TokTail`) and decodes strings only when queried.
 * **Path & Typed Lookups:** Default `Item` property (`parser("user/name")`) with automatic string unescaping, plus `ItemAsLong`, `ItemAsDouble`, `ItemAsBoolean`, `ItemAsDate` (direct-byte ISO 8601 parsing with UTC/local timezone conversion), `GetRaw`, and `Exists`.
-* **Low-Level Token Walkers:** `EnumerateArray`, `EnumerateObject`, `GetArrayItem`, `GetObjectValue`, `GetFirstChild`, and `GetNextSibling` for `O(1)` sibling traversal without path-splitting overhead.
+* **Low-Level Token Walkers:** `EnumerateArray`, `EnumerateObject`, `GetArrayItem`, `GetObjectValue`, `GetFirstChild`, and `GetNextSibling` for O(1) sibling traversal without path-splitting overhead.
 * **Strict Validation Mode:** Optional `Strict = True` flag to validate literals (`true`, `false`, `null`) and reject trailing data after the root container.
 * **Formatting Utilities:** Fast 2-byte UTF-16 `Integer()` array implementations of `PrettyPrint`, `Minify`, `Escape`, and `UnEscape`.
 
 ### `JsonWrite.cls` (Serializer)
-* **Streaming Builder API:** `BeginObject`, `BeginArray`, `Add`, `AddValue`, `WriteKey`, `EndObject`, and `EndArray` write directly into a pre-allocated UTF-16 `Integer()` buffer with zero intermediate objects.
+* **Streaming Builder API:** `BeginObject`, `BeginArray`, `Add`, `AddValue`, `WriteKey`, `EndObject`, and `EndArray` write directly into a pre-allocated UTF-16 `Integer()` buffer with no intermediate objects.
 * **Hybrid `Serialize(vData)`:** Automatically serializes 2D key-value `Variant` arrays (`{object}`), 1D `Variant` arrays (`[array]`), late-bound `Scripting.Dictionary` trees (no `scrrun.dll` reference required), and scalars (`String`, numbers, `Boolean`, `Date`, `Null`).
 * **Direct UTF-8 Output:** `ToString()` for VB6 strings or `ToUtf8Bytes()` for direct file/socket output.
 
 ### `frmExamples.frm` (Interactive Showcase)
-* Includes 9 runnable examples covering basic/typed lookups, array iteration, low-level token walkers, ISO dates, raw sub-tree slicing, strict mode error handling, streaming writes, array/dictionary serialization, and zero-copy UTF-8 round-trip pipelines.
+* Includes 9 runnable examples covering basic/typed lookups, array iteration, low-level token walkers, ISO dates, raw sub-tree slicing, strict mode error handling, streaming writes, array/dictionary serialization, and UTF-8 round-trip pipelines.
 
 ## Performance Benchmarks
 
@@ -89,6 +89,6 @@ Debug.Print writer.ToString()
 
 ## Installation
 
-1. Copy `JsonFast.cls` and `JsonWrite.cls` into your VB6 project directory and add them via **Project -> Add File...**
-2. *(Optional)* Add `frmExamples.frm` to explore all 9 interactive usage scenarios.
+1. Copy `JSonFast.cls` and `JsonWrite.cls` into your VB6 project directory and add them via **Project -> Add File...**
+2. *(Optional)* Add `frmExamples.frm` and open `Project1.vbp` to explore all 9 interactive usage scenarios.
 3. No external DLLs, OCXs, or project references are required—only standard `kernel32` APIs (`CopyMemory`, `MultiByteToWideChar`, `WideCharToMultiByte`, `GetTimeZoneInformation`).
