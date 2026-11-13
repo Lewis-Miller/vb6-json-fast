@@ -1,26 +1,27 @@
 # JSonFast & JSonWrite for Visual Basic 6
 
-A high-performance, zero-dependency JSON parser and serializer for Visual Basic 6. Designed for people who need to parse JSON in VB6 without pulling in COM wrappers or building a full object tree.
+A high-performance, zero-dependency JSON parser, query engine, and serializer written in pure Visual Basic 6.
 
-Most VB6 JSON options either wrap an external library or allocate a Dictionary/Collection for every object and array. JSonFast instead tokenizes the raw UTF-8 bytes into flat parallel arrays and only materializes strings when you ask for them, reaching **330–360 MB/s** parse throughput in native compiled mode. JSonWrite does the reverse, writing directly into a pre-allocated UTF-16 buffer.
+Designed using data-oriented parallel scalar arrays (`Byte()` and `Long()` vectors), direct UTF-16 integer buffer writes via `CopyMemory`, and zero-copy `SAFEARRAY` views, **JsonFast** and **JsonWrite** eliminate COM object overhead, `Variant` tree allocations, and `BSTR` string concatenation churn—achieving **330–360 MB/s** parsing throughput and **~50 MB/s** serialization throughput in native compiled mode.
 
 ## Features
 
 ### `JSonFast.cls` (Parser & Query Engine)
-* **Low-overhead token stream:** Tokenizes raw UTF-8 into parallel arrays (`TokType`, `TokOffset`, `TokLength`, `TokNext`, `TokChild`, `TokTail`) and decodes strings only when queried.
+* **Zero-Allocation Lazy Evaluation:** Tokenizes raw UTF-8 byte streams into flat parallel arrays and decodes strings on demand only when queried.
 * **Path & Typed Lookups:** Default `Item` property (`parser("user/name")`) with automatic string unescaping, plus `ItemAsLong`, `ItemAsDouble`, `ItemAsBoolean`, `ItemAsDate` (direct-byte ISO 8601 parsing with UTC/local timezone conversion), `GetRaw`, and `Exists`.
-* **Low-Level Token Walkers:** `EnumerateArray`, `EnumerateObject`, `GetArrayItem`, `GetObjectValue`, `GetFirstChild`, and `GetNextSibling` for O(1) sibling traversal without path-splitting overhead.
+* **Low-Level Token Walkers:** `EnumerateArray`, `EnumerateObject`, `GetArrayItem`, `GetObjectValue`, `GetFirstChild`, and `GetNextSibling` for `O(1)` sibling traversal without path-splitting overhead.
 * **Strict Validation Mode:** Optional `Strict = True` flag to validate literals (`true`, `false`, `null`) and reject trailing data after the root container.
 * **Formatting Utilities:** Fast 2-byte UTF-16 `Integer()` array implementations of `PrettyPrint`, `Minify`, `Escape`, and `UnEscape`.
 
 ### `JSonWrite.cls` (Serializer)
-* **Streaming Builder API:** `BeginObject`, `BeginArray`, `Add`, `AddValue`, `WriteKey`, `EndObject`, and `EndArray` write directly into a pre-allocated UTF-16 `Integer()` buffer with no intermediate objects.
-* **Default `Item` property:** Assign with `writer("key") = value` inside an object or `writer("") = value` inside an array. `Property Set` supports object values such as `Scripting.Dictionary`.
-* **Hybrid `Serialize(vData)`:** Automatically serializes 2D key-value `Variant` arrays (`{object}`), 1D `Variant` arrays (`[array]`), late-bound `Scripting.Dictionary` trees (no `scrrun.dll` reference required), and scalars (`String`, numbers, `Boolean`, `Date`, `Null`).
-* **Direct UTF-8 Output:** `ToString()` for VB6 strings or `ToUtf8Bytes()` for direct file/socket output.
+* **Streaming Builder API:** `BeginObject`, `BeginArray`, `Add`, `AddValue`, `WriteKey`, `EndObject`, and `EndArray` write directly into a pre-allocated UTF-16 `Integer()` buffer with zero intermediate objects.
+* **Typed Streaming Fast-Paths:** `AddString`, `AddLong`, `AddBoolean`, and `AddNull` bypass `Variant` boxing and runtime dispatch for maximum throughput on hot loops.
+* **Zero-Copy Hybrid `Serialize(vData)`:** Uses direct `SAFEARRAY` `pvData` views and cached COM `vtable` calls (`DispCallFunc`) to serialize 2D key-value `Variant` arrays (`{object}`), 1D `Variant` arrays (`[array]`), late-bound `Scripting.Dictionary` trees (no `scrrun.dll` reference required), and scalars (`String`, numbers, `Boolean`, `Date`, `Null`).
+* **Cached Time Zone & Direct Date Formatting:** Caches OS time zone bias (`RefreshTimeZone`) and formats ISO 8601 UTC timestamps directly into the output buffer without `Format$` string allocations.
+* **Direct UTF-8 Output & File Export:** `ToString()` for VB6 strings, `ToUtf8Bytes()` for socket/memory buffers, and `SaveToFile(path, [writeBom])` for direct Unicode-safe UTF-8 disk writes via Win32 `CreateFileW`.
 
 ### `frmExamples.frm` (Interactive Showcase)
-* Includes 9 runnable examples covering basic/typed lookups, array iteration, low-level token walkers, ISO dates, raw sub-tree slicing, strict mode error handling, streaming writes, array/dictionary serialization, and UTF-8 round-trip pipelines.
+* Includes 10 runnable examples covering basic/typed lookups, array iteration, low-level token walkers, ISO dates, raw sub-tree slicing, strict mode error handling, streaming writes (including typed fast-paths), array/dictionary serialization, zero-copy UTF-8 round-trip pipelines, and direct UTF-8 file export.
 
 ## Performance Benchmarks
 
@@ -41,9 +42,10 @@ Measured in native compiled mode (with Advanced Optimizations enabled: *Remove A
 
 | Write Mode | Throughput |
 | :--- | :---: |
-| Streaming Builder (`BeginObject` / `Add`) | **12.06 MB/s** |
-| 2D Key-Value `Variant` Array (`Serialize`) | **7.81 MB/s** |
-| Late-Bound `Scripting.Dictionary` (`Serialize`) | **1.06 MB/s** |
+| Streaming Builder — Typed (`AddString` / `AddLong` / `AddBoolean`) | **50.70 MB/s** |
+| Streaming Builder — Variant (`BeginObject` / `Add`) | **44.48 MB/s** |
+| 2D Key-Value `Variant` Array (`Serialize`) | **42.38 MB/s** |
+| Late-Bound `Scripting.Dictionary` (`Serialize`) | **20.00 MB/s** |
 
 ## Quick Start
 
@@ -75,21 +77,22 @@ Loop
 Dim writer As New JSonWrite
 
 writer.BeginObject
-    writer("service") = "DomainRegistry"      ' default Item property
-    writer("version") = 2.5
-    writer("active") = True
+    writer.AddString "service", "DomainRegistry"
+    writer.Add "version", 2.5
+    writer.AddBoolean "active", True
     writer.WriteKey "hosts"
     writer.BeginArray
-        writer("") = "http://example.com"    ' empty key = array value
-        writer("") = "http://example.com"
+        writer.AddValue "https://example.com"
+        writer.AddValue "https://example.com"
     writer.EndArray
 writer.EndObject
 
 Debug.Print writer.ToString()
+writer.SaveToFile App.Path & "\output.json"   ' Direct UTF-8 file export (no BOM)
 ```
 
 ## Installation
 
 1. Copy `JSonFast.cls` and `JSonWrite.cls` into your VB6 project directory and add them via **Project -> Add File...**
-2. *(Optional)* Add `frmExamples.frm` and open `Project1.vbp` to explore all 9 interactive usage scenarios.
-3. No external DLLs, OCXs, or project references are required—only standard `kernel32` APIs (`CopyMemory`, `MultiByteToWideChar`, `WideCharToMultiByte`, `GetTimeZoneInformation`).
+2. *(Optional)* Add `frmExamples.frm` to explore all 10 interactive usage scenarios.
+3. No external DLLs, OCXs, or project references are required—only standard Windows APIs (`kernel32`, `oleaut32`, `msvbvm60`).
